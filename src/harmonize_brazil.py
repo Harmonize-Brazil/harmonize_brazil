@@ -247,7 +247,10 @@ class HarmonizeBrazil:
             self.tasks.remove(task)
         bar = self.iface.messageBar()
         if not ok:
-            bar.pushMessage(MSG_TITLE, task.error or self.tr("Download canceled."), Qgis.Warning, 10)
+            # duração 0: a mensagem fica até o usuário fechar
+            msg = task.error or self.tr("Download canceled.")
+            hc.log(msg, Qgis.Critical if task.error else Qgis.Info)
+            bar.pushMessage(MSG_TITLE, msg, Qgis.Critical if task.error else Qgis.Warning, 0)
             return
 
         p = task.params
@@ -260,10 +263,14 @@ class HarmonizeBrazil:
         layers = []
         for path, item in task.files:
             try:
-                if p["fmt"] in hc.RASTER_FORMATS:
-                    layer = hc.load_raster(path, item["id"], group=group)
+                if hc.is_raster_format(p["fmt"]):
+                    name = item["id"]
+                    if p["fmt"].startswith(hc.ASSET_PREFIX):
+                        name += " " + p["fmt"][len(hc.ASSET_PREFIX):]   # ex.: "<item> NDVI"
+                    layer = hc.load_raster(path, name, group=group)
                 else:
-                    layer = hc.load_vector(path, item["id"], group=group)
+                    layer = hc.load_vector(path, item["id"], group=group,
+                                           collection_id=p["collection"]["id"])
                 props = item.get("properties", {})
                 hc.set_temporal(layer, props.get("start_datetime") or props.get("datetime"),
                                 props.get("end_datetime") or props.get("datetime"))
@@ -277,4 +284,8 @@ class HarmonizeBrazil:
             if node:
                 node.setItemVisibilityChecked(False)
 
+        failed = len(task.files) - len(layers)
+        if failed:
+            bar.pushMessage(MSG_TITLE, self.tr("{0} file(s) could not be loaded. See the Log Messages panel, "
+                                               "Harmonize Brazil tab.").format(failed), Qgis.Warning, 0)
         bar.pushMessage(MSG_TITLE, self.tr("{0} layer(s) loaded from {1}").format(len(layers), task.out_dir), Qgis.Success, 8)

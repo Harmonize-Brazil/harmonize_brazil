@@ -54,7 +54,8 @@ def tr(message):
 TYPE_OPTIONS = [(QT_TRANSLATE_NOOP("@default", "All types"), ""),
                 (QT_TRANSLATE_NOOP("@default", "Drone"), "drone"),
                 (QT_TRANSLATE_NOOP("@default", "Health"), "health"),
-                (QT_TRANSLATE_NOOP("@default", "Climate"), "climate")]
+                (QT_TRANSLATE_NOOP("@default", "Climate"), "climate"),
+                (QT_TRANSLATE_NOOP("@default", "Data cube"), "datacube")]
 REGION_OPTIONS = [(QT_TRANSLATE_NOOP("@default", "All regions"), ""),
                   (QT_TRANSLATE_NOOP("@default", "Northeast"), "NE"),
                   (QT_TRANSLATE_NOOP("@default", "North"), "NO")]
@@ -158,7 +159,7 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
                 sl=tr("STAC collection"),
                 su="{0}/collections/{1}".format(hc.STAC_URL, c["id"])))
 
-        self._set_formats(hc.RASTER_FORMATS if c["type"] == "drone" else hc.VECTOR_FORMATS)
+        self._set_formats(hc.formats_for(c))
 
         d_start = QDate.fromString((start or "")[:10], "yyyy-MM-dd")
         d_end = QDate.fromString((end or "")[:10], "yyyy-MM-dd")
@@ -209,7 +210,11 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
             return
         self.cmbFormat.clear()
         for fmt in formats:
-            self.cmbFormat.addItem(tr(FORMAT_LABELS[fmt]), fmt)
+            if fmt.startswith(hc.ASSET_PREFIX):
+                label = "GeoTIFF: {0}".format(fmt[len(hc.ASSET_PREFIX):])   # banda do cubo
+            else:
+                label = tr(FORMAT_LABELS[fmt])
+            self.cmbFormat.addItem(label, fmt)
         if current in formats:
             self.cmbFormat.setCurrentIndex(formats.index(current))
 

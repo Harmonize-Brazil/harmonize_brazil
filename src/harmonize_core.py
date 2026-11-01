@@ -5,27 +5,53 @@ Não depende da interface; pode ser testado no Console Python do QGIS.
 """
 import json
 import os
-import urllib.error
 import urllib.parse
-import urllib.request
 
-from qgis.core import (Qgis, QgsColorRampShader, QgsDateTimeRange,
+from qgis.core import (Qgis, QgsBlockingNetworkRequest, QgsColorRampShader,
+                       QgsDateTimeRange, QgsFeedback, QgsNetworkAccessManager,
                        QgsGraduatedSymbolRenderer, QgsMessageLog, QgsProject,
                        QgsRasterBandStats, QgsRasterLayer, QgsRasterShader,
-                       QgsSingleBandPseudoColorRenderer, QgsStyle, QgsVectorLayer)
-from qgis.PyQt.QtCore import QCoreApplication, QDateTime, Qt
+                       QgsRendererRange, QgsSingleBandPseudoColorRenderer, QgsStyle,
+                       QgsSymbol, QgsVectorLayer)
+from qgis.PyQt.QtCore import QCoreApplication, QDateTime, QEventLoop, QThread, Qt, QUrl
+from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 
 STAC_URL = "https://geolab.inpe.br/bdc/harmonize/stac/v1"
 USER_AGENT = "QGIS-HarmonizeBrazil/0.1"
 LOG_TAG = "Harmonize Brazil"
 REGIONS = {"ne": "NE", "no": "NO"}
-SIZE_WARNING_MB = 50
+SIZE_WARNING_MB = 50                  # acima disso, o usuário confirma o download
+MAX_PARALLEL_HEAD = 8                 # requisições HEAD simultâneas na verificação de tamanho
+MAX_RETRIES = 8                       # retomadas automáticas após queda de conexão
+
+# Estilos de clima (mesmas classes e cores do GeoServer), em styles/*.txt
+STYLES_DIR = os.path.join(os.path.dirname(__file__), "styles")
+CLIMATE_OPACITY = 0.75                # opacidade do preenchimento: 0 = transparente, 1 = opaco
+CLIMATE_STROKE_COLOR = (0, 0, 0, 255) # contorno dos municípios: R, G, B, alfa (255 = sem transparência)
+CLIMATE_STROKE_WIDTH = 0.1            # espessura do contorno, em mm
+PALETTE_NODATA = -9999                # valor sem dado: não é desenhado (fica transparente)
+CLIMATE_PALETTES = [                  # (prefixo do id da coleção, trecho do id, arquivo)
+    ("anomaly_", "_month_", "color_anomaly_month.txt"),
+    ("anomaly_", "", "color_anomaly_epiweek.txt"),
+    ("precip_", "", "color_precipitation.txt"),
+    ("humidity_", "", "color_relative_humidity.txt"),
+    ("temp_", "", "color_temperature.txt"),
+]
 DRONE_WORKSPACE = "harmonize_drone"   # prefixo do layerName das coleções de drone
 
 # Formatos de download por tipo de coleção (chave interna -> rótulo)
 VECTOR_FORMATS = ["geojson", "shapefile"]
 RASTER_FORMATS = ["geotiff"]
-TIFF_EXTS = (".tif", ".tiff")                  # acima disso, o usuário confirma o download   # códigos; o rótulo traduzido fica no diálogo
+ASSET_PREFIX = "asset:"               # formato "asset:<chave>": uma banda específica do cubo
+DATACUBE_KEYWORDS = ("data cube", "datacube")   # palavras-chave que identificam cubos de dados
+TIFF_EXTS = (".tif", ".tiff")
+ALLOWED_SCHEMES = ("https", "http")   # nenhum outro esquema (file:, ftp:...) é aceito
+
+try:
+    _NO_ERROR = QgsBlockingNetworkRequest.ErrorCode.NoError
+except AttributeError:
+    _NO_ERROR = QgsBlockingNetworkRequest.NoError
 
 
 def tr(message):
@@ -38,14 +64,88 @@ def log(msg, level=Qgis.Info):
 
 
 # ----------------------------------------------------------------- HTTP
-def _get_json(url, timeout=60):
-    req = urllib.request.Request(url, headers={"Accept": "application/json",
-                                               "User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+# Todas as requisições passam por QgsBlockingNetworkRequest, que usa o
+# gerenciador de rede do QGIS (proxy, SSL e autenticação configurados no QGIS).
+
+
+class HttpError(RuntimeError):
+    """Erro de rede ou resposta HTTP de erro."""
+
+
+def _check_url(url):
+    """Aceita apenas http(s); bloqueia file: e esquemas personalizados."""
+    scheme = urllib.parse.urlparse(url).scheme.lower()
+    if scheme not in ALLOWED_SCHEMES:
+        raise ValueError(tr("URL scheme not allowed: {0}").format(url))
+
+
+def _request(url, method="get", accept=None, progress=None, is_canceled=None):
+    """Executa GET ou HEAD e retorna o QgsNetworkReplyContent."""
+    _check_url(url)
+    req = QNetworkRequest(QUrl(url))
+    req.setRawHeader(b"User-Agent", USER_AGENT.encode("utf-8"))
+    if accept:
+        req.setRawHeader(b"Accept", accept.encode("utf-8"))
+
+    blocking = QgsBlockingNetworkRequest()
+    feedback = QgsFeedback()
+    if progress or is_canceled:
+        def on_progress(received, total):
+            if is_canceled and is_canceled():
+                feedback.cancel()
+            if progress and total > 0:
+                progress(received / total)
+        # DirectConnection: o sinal é emitido na thread da requisição; sem isso
+        # ele só seria entregue após o fim do download (sem progresso nem cancelamento)
+        blocking.downloadProgress.connect(on_progress, Qt.ConnectionType.DirectConnection)
+
+    if is_canceled and is_canceled():
+        raise RuntimeError(tr("Canceled by the user."))
+
+    if method == "head":
+        err = blocking.head(req, True, feedback)
+    else:
+        err = blocking.get(req, True, feedback)
+
+    if feedback.isCanceled():
+        raise RuntimeError(tr("Canceled by the user."))
+    if err != _NO_ERROR:
+        raise HttpError(blocking.errorMessage())
+    return blocking.reply()
+
+
+def _get_json(url):
+    reply = _request(url, accept="application/json")
+    return json.loads(bytes(reply.content()).decode("utf-8"))
 
 
 # ----------------------------------------------------------------- STAC
+def raster_asset_keys(item_assets):
+    """Chaves de item_assets que são rasters de dados (bandas do cubo), sem miniaturas."""
+    keys = []
+    for key, a in item_assets.items():
+        roles = a.get("roles") or []
+        mtype = (a.get("type") or "").lower()
+        if key == "thumbnail" or "thumbnail" in roles:
+            continue
+        if "tiff" in mtype or "data" in roles:
+            keys.append(key)
+    return keys
+
+
+def formats_for(col):
+    """Formatos de download oferecidos para a coleção."""
+    if col.get("type") == "datacube" and col.get("band_assets"):
+        return [ASSET_PREFIX + k for k in col["band_assets"]]
+    if col.get("type") in ("drone", "datacube"):
+        return list(RASTER_FORMATS)
+    return list(VECTOR_FORMATS)
+
+
+def is_raster_format(fmt):
+    return fmt in RASTER_FORMATS or fmt.startswith(ASSET_PREFIX)
+
+
 def list_collections():
     """Lista resumida das coleções, pronta para popular a interface.
     Campos ausentes ou nulos no STAC (null) viram valores vazios."""
@@ -61,14 +161,21 @@ def list_collections():
         parts = cid.lower().split("_")
         wms = ((c.get("bdc:metadata") or {}).get("wms") or {})
         layer_name = (wms.get("layerName") or "").lower()
-        ctype = "drone" if layer_name.startswith(DRONE_WORKSPACE) else (c.get("bdc:type") or "")
+        keywords = [k for k in (c.get("keywords") or []) if k]
+        if layer_name.startswith(DRONE_WORKSPACE):
+            ctype = "drone"
+        elif any(k.strip().lower() in DATACUBE_KEYWORDS for k in keywords):
+            ctype = "datacube"
+        else:
+            ctype = c.get("bdc:type") or ""
         out.append({
             "id": cid,
             "title": c.get("title") or cid,
             "description": c.get("description") or "",
-            "type": ctype,                               # climate | health | drone
+            "type": ctype,                               # climate | health | drone | datacube
             "region": next((REGIONS[p] for p in parts if p in REGIONS), ""),
-            "keywords": [k for k in (c.get("keywords") or []) if k],
+            "keywords": keywords,
+            "band_assets": raster_asset_keys(c.get("item_assets") or {}),
             "temporal": intervals[0] or [None, None],
             "bbox": bboxes[0],
         })
@@ -85,7 +192,7 @@ def list_items(collection_id, start=None, end=None, limit=100, is_canceled=None)
     url = f"{base}?{urllib.parse.urlencode(params)}"
     try:
         first = _get_json(url)
-    except urllib.error.HTTPError:
+    except HttpError:
         # servidor não aceita o filtro: busca tudo e filtra localmente depois
         log(tr("Server rejected the datetime filter; fetching all items."), Qgis.Warning)
         first = _get_json(f"{base}?limit={limit}")
@@ -104,9 +211,13 @@ def list_items(collection_id, start=None, end=None, limit=100, is_canceled=None)
 # ----------------------------------------------------------------- download
 def find_asset(item, fmt):
     """Retorna (chave, asset) do formato pedido ou (None, None).
-    geojson/shapefile: chave direta. geotiff: primeiro asset .tif/.tiff ou
-    image/tiff que não seja miniatura."""
+    geojson/shapefile: chave direta. asset:<chave>: banda específica (cubos).
+    geotiff: primeiro asset .tif/.tiff ou image/tiff que não seja miniatura."""
     assets = item.get("assets") or {}
+    if fmt.startswith(ASSET_PREFIX):
+        key = fmt[len(ASSET_PREFIX):]
+        a = assets.get(key)
+        return (key, a) if a else (None, None)
     if fmt != "geotiff":
         a = assets.get(fmt)
         return (fmt, a) if a else (None, None)
@@ -130,21 +241,66 @@ def asset_local_path(item, fmt, out_dir):
     return href, os.path.join(out_dir, os.path.basename(urllib.parse.urlparse(href).path))
 
 
-def asset_size(item, fmt, timeout=30):
-    """Tamanho do asset em bytes: usa file:size do STAC ou um HEAD HTTP.
-    Retorna None se o tamanho não puder ser determinado."""
-    asset = find_asset(item, fmt)[1] or {}
-    size = asset.get("file:size")
-    if isinstance(size, (int, float)) and size > 0:
-        return int(size)
-    try:
-        req = urllib.request.Request(asset["href"], method="HEAD",
-                                     headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            length = resp.headers.get("Content-Length")
-            return int(length) if length else None
-    except Exception:  # noqa: BLE001
-        return None
+def asset_sizes(items, fmt, progress=None, is_canceled=None):
+    """Tamanho em bytes de cada item (lista na mesma ordem; None se desconhecido).
+    Usa file:size do STAC quando existe; senão faz requisições HEAD assíncronas,
+    até MAX_PARALLEL_HEAD ao mesmo tempo, pelo gerenciador de rede do QGIS."""
+    nam = QgsNetworkAccessManager.instance()
+    results = {}
+    queue = list(enumerate(items))
+    active = {}
+    loop = QEventLoop()
+    state = {"done": False}
+
+    def finish_if_idle():
+        if not active and not queue:
+            state["done"] = True
+            loop.quit()
+
+    def on_finished(reply):
+        idx = active.pop(reply, None)
+        if idx is None:
+            return
+        length = None
+        if reply.error() == QNetworkReply.NetworkError.NoError:
+            length = reply.header(QNetworkRequest.KnownHeaders.ContentLengthHeader)
+        results[idx] = int(length) if length not in (None, "") else None
+        reply.deleteLater()
+        if progress:
+            progress(len(results) / len(items))
+        if is_canceled and is_canceled():
+            queue.clear()
+            for r in list(active):
+                r.abort()
+        start_next()
+
+    def start_next():
+        while queue and len(active) < MAX_PARALLEL_HEAD:
+            idx, item = queue.pop(0)
+            asset = find_asset(item, fmt)[1] or {}
+            size = asset.get("file:size")
+            if isinstance(size, (int, float)) and size > 0:
+                results[idx] = int(size)
+                continue
+            href = asset.get("href") or ""
+            try:
+                _check_url(href)
+            except ValueError:
+                results[idx] = None
+                continue
+            req = QNetworkRequest(QUrl(href))
+            req.setRawHeader(b"User-Agent", USER_AGENT.encode("utf-8"))
+            reply = nam.head(req)
+            active[reply] = idx
+            reply.finished.connect(lambda r=reply: on_finished(r))
+        finish_if_idle()
+
+    start_next()
+    if not state["done"]:
+        loop.exec()
+    if is_canceled and is_canceled():
+        raise RuntimeError(tr("Canceled by the user."))
+    return [results.get(i) for i in range(len(items))]
 
 
 def format_size(n_bytes):
@@ -153,39 +309,180 @@ def format_size(n_bytes):
     return f"{mb / 1024:.1f} GB" if mb >= 1024 else f"{mb:.1f} MB"
 
 
+def _stream_to_file(url, path, offset, progress=None, is_canceled=None):
+    """Uma tentativa de GET gravando direto no disco a partir de 'offset'.
+    Se offset > 0, pede só o restante (cabeçalho Range) e acrescenta ao arquivo.
+    Retorna dict com 'error' (None se completou) e 'canceled'."""
+    nam = QgsNetworkAccessManager.instance()
+    req = QNetworkRequest(QUrl(url))
+    req.setRawHeader(b"User-Agent", USER_AGENT.encode("utf-8"))
+    # sem cache: o cache de disco do QGIS não deve receber arquivos de vários GB
+    req.setAttribute(QNetworkRequest.Attribute.CacheLoadControlAttribute,
+                     QNetworkRequest.CacheLoadControl.AlwaysNetwork)
+    req.setAttribute(QNetworkRequest.Attribute.CacheSaveControlAttribute, False)
+    req.setAttribute(QNetworkRequest.Attribute.RedirectPolicyAttribute,
+                     QNetworkRequest.RedirectPolicy.NoLessSafeRedirectPolicy)
+    if offset:
+        req.setRawHeader(b"Range", f"bytes={offset}-".encode("ascii"))
+
+    state = {"error": None, "canceled": False, "base": None}
+    fh = open(path, "ab" if offset else "wb")
+    reply = nam.get(req)
+    loop = QEventLoop()
+
+    def check_mode():
+        if state["base"] is None:
+            status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+            if offset and status == 206:
+                state["base"] = offset           # servidor aceitou retomar
+            else:
+                state["base"] = 0                # resposta completa: recomeça do zero
+                if offset:
+                    fh.seek(0)
+                    fh.truncate()
+
+    def on_ready():
+        if not reply.isOpen():
+            return
+        check_mode()
+        data = reply.readAll()
+        if data:
+            fh.write(bytes(data))
+        if is_canceled and is_canceled() and not state["canceled"]:
+            state["canceled"] = True
+            reply.abort()
+
+    def on_progress(received, total):
+        if progress and total > 0 and state["base"] is not None:
+            progress((state["base"] + received) / (state["base"] + total))
+
+    reply.readyRead.connect(on_ready)
+    reply.downloadProgress.connect(on_progress)
+    reply.finished.connect(loop.quit)
+    loop.exec()
+    if not state["canceled"]:
+        on_ready()
+    fh.close()
+
+    status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    if state["canceled"]:
+        pass
+    elif offset and status == 416:
+        state["error"] = None                    # nada a retomar: arquivo já completo
+    elif reply.error() != QNetworkReply.NetworkError.NoError:
+        state["error"] = reply.errorString()
+    elif status not in (200, 206):
+        state["error"] = "HTTP {0}".format(status)
+    reply.deleteLater()
+    return state
+
+
 def download_asset(item, fmt, out_dir, progress=None, is_canceled=None):
-    """Baixa o asset no formato pedido (geojson | shapefile | geotiff). Usa cache local."""
+    """Baixa o asset no formato pedido (geojson | shapefile | geotiff). Usa cache local.
+    Grava no disco à medida que os dados chegam e, se a conexão cair, retoma do
+    ponto em que parou (até MAX_RETRIES vezes). O arquivo .part é mantido em caso
+    de falha, para que uma nova tentativa continue de onde parou."""
     href, dest = asset_local_path(item, fmt, out_dir)
     os.makedirs(out_dir, exist_ok=True)
     if os.path.exists(dest):
         return dest
+    _check_url(href)
+
+    name = os.path.basename(dest)
     tmp = dest + ".part"
-    req = urllib.request.Request(href, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as fh:
-        total = int(resp.headers.get("Content-Length") or 0)
-        done = 0
-        while True:
+    attempt = 0
+    log(tr("Downloading {0}").format(name))
+    while True:
+        if is_canceled and is_canceled():
+            raise RuntimeError(tr("Canceled by the user."))
+        offset = os.path.getsize(tmp) if os.path.exists(tmp) else 0
+        result = _stream_to_file(href, tmp, offset, progress, is_canceled)
+        if result["canceled"]:
+            raise RuntimeError(tr("Canceled by the user."))
+        if result["error"] is None:
+            break
+        attempt += 1
+        done = os.path.getsize(tmp) if os.path.exists(tmp) else 0
+        if attempt > MAX_RETRIES:
+            raise HttpError(tr("Download of {0} failed after {1} attempts ({2} saved; run it again "
+                               "to resume): {3}").format(name, attempt, format_size(done), result["error"]))
+        log(tr("Connection interrupted while downloading {0} at {1} ({2}). Resuming, attempt {3} of {4}.")
+            .format(name, format_size(done), result["error"], attempt, MAX_RETRIES), Qgis.Warning)
+        for _ in range(min(2 ** attempt, 30) * 10):      # espera crescente, atenta ao cancelamento
             if is_canceled and is_canceled():
                 raise RuntimeError(tr("Canceled by the user."))
-            chunk = resp.read(1024 * 1024)
-            if not chunk:
-                break
-            fh.write(chunk)
-            done += len(chunk)
-            if progress and total:
-                progress(done / total)
+            QThread.msleep(100)
+
     os.replace(tmp, dest)
+    log(tr("Download completed: {0} ({1})").format(name, format_size(os.path.getsize(dest))))
     return dest
 
 
-def load_vector(path, name, group=None, ramp="Spectral", invert=True, classes=5):
-    """Carrega GeoJSON ou shapefile zipado com simbologia graduada."""
+def palette_file(collection_id):
+    """Arquivo de cores do GeoServer para a coleção, ou None (ex.: saúde)."""
+    cid = (collection_id or "").lower()
+    for prefix, part, filename in CLIMATE_PALETTES:
+        if cid.startswith(prefix) and part in cid:
+            return os.path.join(STYLES_DIR, filename)
+    return None
+
+
+def read_palette(path):
+    """Lê linhas 'valor R:G:B' e retorna [(valor, QColor)] em ordem crescente.
+    O valor PALETTE_NODATA é ignorado: feições com ele ficam sem desenho."""
+    stops = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            value = float(parts[0])
+            if value <= PALETTE_NODATA:
+                continue
+            r, g, b = (int(x) for x in parts[1].split(":")[:3])
+            stops.append((value, QColor(r, g, b)))
+    stops.sort(key=lambda s: s[0])
+    return stops
+
+
+def palette_renderer(layer, field, stops):
+    """Simbologia graduada com as classes do GeoServer: cada classe vai de um
+    valor da paleta até o seguinte e usa a cor do valor inicial."""
+    def fmt(v):
+        return "{0:g}".format(v)
+
+    ranges = []
+    for i, (value, color) in enumerate(stops):
+        last = i == len(stops) - 1
+        upper = 1e12 if last else stops[i + 1][0]
+        label = ">= {0}".format(fmt(value)) if last else "{0} - {1}".format(fmt(value), fmt(upper))
+        fill = QColor(color)
+        fill.setAlphaF(CLIMATE_OPACITY)              # transparência só no preenchimento
+        symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+        symbol.setColor(fill)
+        sl = symbol.symbolLayer(0)
+        if hasattr(sl, "setStrokeColor"):           # contorno opaco nos polígonos
+            sl.setStrokeColor(QColor(*CLIMATE_STROKE_COLOR))
+            sl.setStrokeWidth(CLIMATE_STROKE_WIDTH)
+        ranges.append(QgsRendererRange(value, upper, symbol, label))
+    return QgsGraduatedSymbolRenderer(field, ranges)
+
+
+def load_vector(path, name, group=None, collection_id=None,
+                ramp="Spectral", invert=True, classes=5):
+    """Carrega GeoJSON ou shapefile zipado.
+    Clima: classes e cores do GeoServer (styles/), preenchimento com transparência
+    CLIMATE_OPACITY e contorno opaco CLIMATE_STROKE_COLOR.
+    Demais (saúde): simbologia graduada automática (Jenks)."""
     src = f"/vsizip/{path}" if path.lower().endswith(".zip") else path
     layer = QgsVectorLayer(src, name, "ogr")
     if not layer.isValid():
         raise RuntimeError(tr("Could not open {0}").format(path))
     field = first_numeric_field(layer)
-    if field:
+    pfile = palette_file(collection_id)
+    if field and pfile and os.path.exists(pfile):
+        layer.setRenderer(palette_renderer(layer, field, read_palette(pfile)))
+    elif field:
         renderer = QgsGraduatedSymbolRenderer(field)
         color_ramp = QgsStyle.defaultStyle().colorRamp(ramp)
         if color_ramp:

@@ -1,6 +1,5 @@
 """Tarefas em segundo plano: verificação (itens + tamanho) e download dos assets."""
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from qgis.core import QgsTask
 
@@ -53,19 +52,13 @@ class HarmonizePrepareTask(QgsTask):
             if not pending:
                 return True
 
-            with ThreadPoolExecutor(max_workers=8) as pool:
-                futures = [pool.submit(hc.asset_size, i, p["fmt"]) for i in pending]
-                for k, fut in enumerate(as_completed(futures)):
-                    if self.isCanceled():
-                        for f in futures:
-                            f.cancel()
-                        return False
-                    size = fut.result()
-                    if size is None:
-                        self.unknown += 1
-                    else:
-                        self.total_bytes += size
-                    self.setProgress((k + 1) / len(pending) * 100)
+            sizes = hc.asset_sizes(
+                pending, p["fmt"],
+                progress=lambda frac: self.setProgress(frac * 100),
+                is_canceled=self.isCanceled)
+            known = [x for x in sizes if x is not None]
+            self.total_bytes = sum(known)
+            self.unknown = len(sizes) - len(known)
             return True
         except Exception as exc:  # noqa: BLE001
             self.error = str(exc)

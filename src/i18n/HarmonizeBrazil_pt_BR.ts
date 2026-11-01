@@ -19,139 +19,139 @@
         <translation>Saúde</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="58" />
+        <location filename="../harmonize_brazil_dialog.py" line="59" />
         <source>All regions</source>
         <translation>Todas</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="59" />
+        <location filename="../harmonize_brazil_dialog.py" line="60" />
         <source>Northeast</source>
         <translation>Nordeste</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="60" />
+        <location filename="../harmonize_brazil_dialog.py" line="61" />
         <source>North</source>
         <translation>Norte</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="62" />
+        <location filename="../harmonize_brazil_dialog.py" line="63" />
         <source>Shapefile (zip)</source>
         <translation>Shapefile (zip)</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="108" />
+        <location filename="../harmonize_brazil_dialog.py" line="109" />
         <source>Could not read the STAC catalog:
 {0}</source>
         <translation>Não foi possível ler o catálogo STAC:
 {0}</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="135" />
+        <location filename="../harmonize_brazil_dialog.py" line="136" />
         <source>No collection matches these filters.</source>
         <translation>Nenhuma coleção encontrada com esses filtros.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="150" />
+        <location filename="../harmonize_brazil_dialog.py" line="151" />
         <source>Type</source>
         <translation>Tipo</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="150" />
+        <location filename="../harmonize_brazil_dialog.py" line="151" />
         <source>Region</source>
         <translation>Região</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="150" />
+        <location filename="../harmonize_brazil_dialog.py" line="151" />
         <source>Period</source>
         <translation>Período</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="150" />
+        <location filename="../harmonize_brazil_dialog.py" line="151" />
         <source>to</source>
         <translation>a</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="217" />
+        <location filename="../harmonize_brazil_dialog.py" line="222" />
         <source>Output folder</source>
         <translation>Pasta de saída</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="229" />
+        <location filename="../harmonize_brazil_dialog.py" line="234" />
         <source>Select a collection.</source>
         <translation>Selecione uma coleção.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="231" />
+        <location filename="../harmonize_brazil_dialog.py" line="236" />
         <source>The start date is after the end date.</source>
         <translation>A data inicial é posterior à data final.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="233" />
+        <location filename="../harmonize_brazil_dialog.py" line="238" />
         <source>Enter the output folder.</source>
         <translation>Informe a pasta de saída.</translation>
     </message>
     <message>
-        <location filename="../harmonize_core.py" line="90" />
+        <location filename="../harmonize_core.py" line="197" />
         <source>Server rejected the datetime filter; fetching all items.</source>
         <translation>O servidor recusou o filtro datetime; buscando todos os itens.</translation>
     </message>
     <message>
-        <location filename="../harmonize_core.py" line="128" />
+        <location filename="../harmonize_core.py" line="239" />
         <source>Item {0} has no asset '{1}'.</source>
         <translation>O item {0} não tem o asset '{1}'.</translation>
     </message>
     <message>
-        <location filename="../harmonize_core.py" line="169" />
+        <location filename="../harmonize_core.py" line="413" />
         <source>Canceled by the user.</source>
         <translation>Cancelado pelo usuário.</translation>
     </message>
     <message>
-        <location filename="../harmonize_core.py" line="206" />
+        <location filename="../harmonize_core.py" line="503" />
         <source>Could not open {0}</source>
         <translation>Não foi possível abrir {0}</translation>
     </message>
     <message>
-        <location filename="../harmonize_tasks.py" line="81" />
+        <location filename="../harmonize_tasks.py" line="74" />
         <source>Harmonize: {0} ({1} to {2})</source>
         <translation>Harmonize: {0} ({1} a {2})</translation>
     </message>
     <message>
-        <location filename="../harmonize_tasks.py" line="47" />
+        <location filename="../harmonize_tasks.py" line="46" />
         <source>No items found in the selected period.</source>
         <translation>Nenhum item encontrado no período informado.</translation>
     </message>
     <message>
-        <location filename="../harmonize_tasks.py" line="93" />
+        <location filename="../harmonize_tasks.py" line="86" />
         <source>{0} item(s) to download into {1}</source>
         <translation>{0} item(ns) para baixar em {1}</translation>
     </message>
     <message>
-        <location filename="../harmonize_tasks.py" line="29" />
+        <location filename="../harmonize_tasks.py" line="28" />
         <source>Harmonize: checking files ({0})</source>
         <translation>Harmonize: verificando arquivos ({0})</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="192" />
+        <location filename="../harmonize_brazil_dialog.py" line="193" />
         <source>About us</source>
         <translation>Sobre nós</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="173" />
+        <location filename="../harmonize_brazil_dialog.py" line="174" />
         <source>This work is part of the &lt;a href="https://www.harmonize-tools.org/"&gt;Harmonize Project&lt;/a&gt;. Harmonizing multi-scale spatiotemporal data for health in climate change hotspots. Harmonize is a project in partnership with the Health and Climate Observatory and several international partners, including the Barcelona Supercomputing Center (BSC). The project’s objective is to collect, organize and analyze multi-scale spatiotemporal data for health in climate hotspots.</source>
         <translation>Este trabalho faz parte do &lt;a href="https://www.harmonize-tools.org/"&gt;Projeto Harmonize&lt;/a&gt;. Harmonização de dados espaço-temporais multiescala para a saúde em hotspots de mudanças climáticas. O Harmonize é um projeto em parceria com o Observatório de Clima e Saúde e diversos parceiros internacionais, entre eles o Barcelona Supercomputing Center (BSC). O objetivo do projeto é coletar, organizar e analisar dados espaço-temporais multiescala para a saúde em hotspots climáticos.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="179" />
+        <location filename="../harmonize_brazil_dialog.py" line="180" />
         <source>The &lt;a href="https://harmonize-brazil.github.io/"&gt;Earth Observation Data Cube tuned for Health Response Systems (EODCtHRS)&lt;/a&gt; component is based on the integration and interoperability between specific sets of attention data (climate reanalysis, forecast, socioeconomic, demographic, health, disease surveillance data and drone images) and digital infrastructure of the Brazil Data Cube (BDC) Project of the National Institute for Space Research (INPE), in particular with the Earth Observation datasets of Brazil.</source>
         <translation>O componente &lt;a href="https://harmonize-brazil.github.io/"&gt;Earth Observation Data Cube tuned for Health Response Systems (EODCtHRS)&lt;/a&gt; baseia-se na integração e na interoperabilidade entre conjuntos específicos de dados de interesse (reanálise e previsão climática, dados socioeconômicos, demográficos, de saúde, de vigilância de doenças e imagens de drone) e a infraestrutura digital do Projeto Brazil Data Cube (BDC), do Instituto Nacional de Pesquisas Espaciais (INPE), em particular com os conjuntos de dados de Observação da Terra do Brasil.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="185" />
+        <location filename="../harmonize_brazil_dialog.py" line="186" />
         <source>This work is supported by the Wellcome Trust grant number 224694/Z/21/Z.</source>
         <translation>Este trabalho é financiado pelo Wellcome Trust, processo nº 224694/Z/21/Z.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="150" />
+        <location filename="../harmonize_brazil_dialog.py" line="151" />
         <source>STAC collection</source>
         <translation>Coleção no STAC</translation>
     </message>
@@ -161,9 +161,39 @@
         <translation>Drone</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="186" />
+        <location filename="../harmonize_brazil_dialog.py" line="187" />
         <source>Explore the data online in the &lt;a href="https://geolab.inpe.br/bdc/harmonize/explorer/explore"&gt;Harmonize Explorer&lt;/a&gt;.</source>
         <translation>Explore os dados online no &lt;a href="https://geolab.inpe.br/bdc/harmonize/explorer/explore"&gt;Harmonize Explorer&lt;/a&gt;.</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_core.py" line="79" />
+        <source>URL scheme not allowed: {0}</source>
+        <translation>Esquema de URL não permitido: {0}</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_core.py" line="394" />
+        <source>Downloading {0}</source>
+        <translation>Baixando {0}</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_core.py" line="407" />
+        <source>Download of {0} failed after {1} attempts ({2} saved; run it again to resume): {3}</source>
+        <translation>O download de {0} falhou após {1} tentativas ({2} já salvos; execute novamente para continuar de onde parou): {3}</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_core.py" line="409" />
+        <source>Connection interrupted while downloading {0} at {1} ({2}). Resuming, attempt {3} of {4}.</source>
+        <translation>Conexão interrompida no download de {0} em {1} ({2}). Retomando, tentativa {3} de {4}.</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_core.py" line="417" />
+        <source>Download completed: {0} ({1})</source>
+        <translation>Download concluído: {0} ({1})</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil_dialog.py" line="58" />
+        <source>Data cube</source>
+        <translation>Cubo de dados</translation>
     </message>
 </context>
 <context>
@@ -184,22 +214,22 @@
         <translation>Download iniciado (acompanhe na barra de tarefas).</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil.py" line="250" />
+        <location filename="../harmonize_brazil.py" line="251" />
         <source>Download canceled.</source>
         <translation>Download cancelado.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil.py" line="256" />
+        <location filename="../harmonize_brazil.py" line="259" />
         <source>{0} file(s) saved in {1}</source>
         <translation>{0} arquivo(s) salvo(s) em {1}</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil.py" line="272" />
+        <location filename="../harmonize_brazil.py" line="279" />
         <source>Failed to load {0}: {1}</source>
         <translation>Falha ao carregar {0}: {1}</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil.py" line="280" />
+        <location filename="../harmonize_brazil.py" line="291" />
         <source>{0} layer(s) loaded from {1}</source>
         <translation>{0} camada(s) carregada(s) de {1}</translation>
     </message>
@@ -232,6 +262,11 @@
         <location filename="../harmonize_brazil.py" line="231" />
         <source>Download canceled by the user.</source>
         <translation>Download cancelado pelo usuário.</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil.py" line="289" />
+        <source>{0} file(s) could not be loaded. See the Log Messages panel, Harmonize Brazil tab.</source>
+        <translation>{0} arquivo(s) não puderam ser carregados. Veja o painel Mensagens de Log, aba Harmonize Brazil.</translation>
     </message>
 </context>
 <context>
