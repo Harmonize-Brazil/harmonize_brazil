@@ -7,11 +7,11 @@
 name=Harmonize Brazil Catalog
 qgisMinimumVersion=3.22
 description=Access to the Harmonize Brazil STAC catalog: search and download of drone imagery, data cubes, and municipal climate and health indicators
-version=0.1.1
+version=0.1.2
 author=Adeline Marinho Maciel
 email=adelinemaciel22@gmail.com
 
-about=The HARMONIZE Brazil QGIS plugin, currently under development, facilitates access to geospatial data provided by the HARMONIZE Brazil project. Through the STAC catalog, users can explore the available collections of drone imagery (RGB, multispectral and NDVI), Earth observation data cubes, and municipal climate and health indicators. Indicators can be downloaded as GeoJSON or shapefile, and drone imagery and data cube bands as GeoTIFF. All data are loaded into QGIS ready for temporal analysis.
+about=The HARMONIZE Brazil QGIS plugin, currently under development, facilitates access to geospatial data provided by the HARMONIZE Brazil project. Through the STAC catalog, users can explore the available collections of drone imagery (RGB, multispectral and NDVI), Earth observation data cubes, and municipal climate and health indicators. Indicators can be downloaded as GeoJSON or shapefile, and drone imagery and data cube bands as GeoTIFF. All data are loaded into QGIS with the same styles used by the project's GeoServer and ready for temporal analysis.
 
 tracker=https://github.com/Harmonize-Brazil/harmonize_brazil/issues
 repository=https://github.com/Harmonize-Brazil/harmonize_brazil
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # Uncomment the following line and add your changelog:
 
 # Tags are comma separated with spaces allowed
-tags=stac, inpe, harmonize, climate, health, drone
+tags=stac, inpe, harmonize, climate, health, drone, data cube, brazil data cube, dengue
 
 homepage=https://github.com/Harmonize-Brazil/harmonize_brazil
 category=Web
@@ -31,8 +31,13 @@ icon=icon.png
 # experimental flag
 experimental=True
 changelog=
+    0.1.2 - Health layers use the GeoServer styles: fixed colors for dengue alert levels
+            and five equal-interval classes for the other indicators.
+            Values stored as text in the value column are styled correctly.
+            The STAC catalog URL is read from the GitHub repository, so it can be
+            updated without a new plugin release.
     0.1.1 - Network requests use the QGIS network manager (proxy settings, http/https only).
-    	    Large downloads are written directly to disk and resume after connection drops.
+            Large downloads are written directly to disk and resume after connection drops.
             Climate layers use the GeoServer classes and colors, with transparent fill and
             black outlines. New Data cube type, with download of individual bands as GeoTIFF.
     0.1.0 - First release: STAC catalog browsing, download of climate and health

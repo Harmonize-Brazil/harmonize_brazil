@@ -32,6 +32,12 @@
 
 ![Drone imagery loaded in QGIS](images/drone_map.png)
 
+![Drone imagery loaded in QGIS](images/drone_RGB.png)
+
+![Health data loaded in QGIS](images/health_data.png)
+
+![Climate data loaded in QGIS](images/climate_data.png)
+
 </details>
 
 <details>
@@ -49,10 +55,12 @@
 - Local cache: files already downloaded are reused, and interrupted downloads continue where they stopped.
 - Downloads run in the background, with progress and cancellation in the QGIS task bar.
 - Network access uses the QGIS network settings (proxy, SSL and authentication).
+- The STAC catalog URL is read from this repository each time the catalog is loaded, so it can be changed without a new plugin release.
 - Layers are loaded ready to use and configured for the **Temporal Controller**:
-  - **Climate**: the same classes and colors as the project's GeoServer styles, with transparent fill and black outlines.
-  - **Health**: graduated symbology.
+  - **Climate**: the same classes and colors as the project's GeoServer styles.
+  - **Health**: the same colors as the project's GeoServer styles. Dengue alert levels use fixed colors (low, moderate, high and very high risk), and the other indicators use five equal-interval classes from 0 to the layer maximum.
   - **NDVI** (drone and data cubes): RdYlGn color ramp.
+  - Climate and health layers have a semi-transparent fill and black outlines, so colors may look slightly different depending on the basemap.
 - *About us* window with information about the Harmonize project and a link to the [Harmonize Explorer](https://geolab.inpe.br/bdc/harmonize/explorer/explore).
 - Interface in **English** and **Brazilian Portuguese**, following the QGIS language setting.
 
@@ -74,7 +82,7 @@
 <summary><strong>Requirements</strong></summary>
 
 - QGIS 3.22 or later.
-- Internet access to `geolab.inpe.br`.
+- Internet access to `geolab.inpe.br` (data) and `raw.githubusercontent.com` (catalog configuration).
 
 No additional Python packages are required.
 
@@ -143,9 +151,11 @@ harmonize_brazil/
 │   ├── harmonize_brazil_dialog_base.ui   # Dialog layout (Qt Designer)
 │   ├── harmonize_core.py                 # STAC access, download, layer loading and styling
 │   ├── harmonize_tasks.py                # Background tasks (size check, download)
+│   ├── data/harmonize_config.json        # STAC catalog URL (read from GitHub at runtime)
 │   ├── i18n/                             # Translations (.ts source, .qm compiled)
 │   ├── styles/                           # Climate color tables (same as GeoServer)
 │   └── icon.png
+├── make_zip.py                           # Builds the package for plugins.qgis.org
 ├── LICENSE
 └── README.md
 ```
@@ -153,9 +163,58 @@ harmonize_brazil/
 </details>
 
 <details>
-<summary><strong>Climate styles</strong></summary>
+<summary><strong>Layer styles</strong></summary>
 
-The files in `styles/` use the same format as the GeoServer color tables: one line per class, with the lower bound and the RGB color (`value R:G:B`). The value `-9999` marks missing data, which is not drawn. Fill opacity, outline color and outline width are set at the top of `harmonize_core.py` (`CLIMATE_OPACITY`, `CLIMATE_STROKE_COLOR`, `CLIMATE_STROKE_WIDTH`).
+All styles are applied to the `value` column. Values stored as text are converted to numbers, and missing values are not drawn.
+
+**Climate.** The files in `styles/` use the same format as the GeoServer color tables: one line per class, with the lower bound and the RGB color (`value R:G:B`). The value `-9999` marks missing data. The palette is chosen by the collection id:
+
+| Collections | Color table |
+|---|---|
+| `precip_*` | `color_precipitation.txt` |
+| `temp_*` | `color_temperature.txt` |
+| `humidity_*` | `color_relative_humidity.txt` |
+| `anomaly_*` (month) | `color_anomaly_month.txt` |
+| `anomaly_*` (epiweek) | `color_anomaly_epiweek.txt` |
+
+**Health.** Same colors as the GeoServer SLD files:
+
+| Data | Classes |
+|---|---|
+| Dengue alert level | 1 Low risk (green), 2 Moderate risk (yellow), 3 High risk (orange), 4 Very high risk (red) |
+| Other indicators | Five equal intervals between 0 and the layer maximum (step = maximum / 5), from light gray to dark red |
+
+**Settings.** At the top of `harmonize_core.py`: `CLIMATE_OPACITY`, `HEALTH_OPACITY`, `CLIMATE_STROKE_COLOR`, `CLIMATE_STROKE_WIDTH`, `ALERT_LEVELS` and `HEALTH_COLORS`.
+
+</details>
+
+<details>
+<summary><strong>Changing the STAC catalog URL</strong></summary>
+
+The catalog URL is stored in [`src/data/harmonize_config.json`](src/data/harmonize_config.json):
+
+```json
+{
+  "stac_url": "https://geolab.inpe.br/bdc/harmonize/stac/v1"
+}
+```
+
+Each time the catalog is loaded, the plugin reads this file from the `main` branch of this repository. To point all users to a new catalog, edit the file and push it to `main`; no new plugin release is needed. The change may take a few minutes to reach users because of GitHub caching.
+
+If GitHub cannot be reached within 5 seconds, or the file is invalid, the plugin uses the last valid copy it downloaded, then the copy shipped with the plugin. The URL in use and its source are recorded in the *Log Messages* panel, tab *Harmonize Brazil*.
+
+</details>
+
+<details>
+<summary><strong>Packaging and publishing</strong></summary>
+
+From the repository root (OSGeo4W Shell on Windows, or any Python 3):
+
+```bash
+python make_zip.py
+```
+
+The script checks the required metadata fields and files and creates `dist/harmonize_brazil-<version>.zip` with only the files needed by the plugin (Python modules, `.ui`, `metadata.txt`, `LICENSE`, `icon.png`, `i18n/*.qm`, `styles/*.txt` and `data/*.json`). Upload the zip at [plugins.qgis.org](https://plugins.qgis.org) with *Add version*, after updating `version` and `changelog` in `metadata.txt`.
 
 </details>
 
@@ -230,10 +289,12 @@ O **Harmonize Brazil Catalog** dá acesso direto, no QGIS, aos conjuntos de dado
 - Cache local: arquivos já baixados são reaproveitados, e downloads interrompidos continuam de onde pararam.
 - Downloads em segundo plano, com progresso e cancelamento pela barra de tarefas do QGIS.
 - Acesso à rede pelas configurações do QGIS (proxy, SSL e autenticação).
+- A URL do catálogo STAC é lida deste repositório a cada carregamento do catálogo, e pode ser alterada sem uma nova versão do plugin.
 - Camadas carregadas prontas para uso e configuradas para o **Controlador Temporal**:
-  - **Clima**: mesmas classes e cores dos estilos do GeoServer do projeto, com preenchimento transparente e contorno preto.
-  - **Saúde**: simbologia graduada.
+  - **Clima**: mesmas classes e cores dos estilos do GeoServer do projeto.
+  - **Saúde**: mesmas cores dos estilos do GeoServer do projeto. O nível de alerta de dengue usa cores fixas (risco baixo, moderado, alto e muito alto), e os demais indicadores usam cinco classes de intervalos iguais entre 0 e o valor máximo da camada.
   - **NDVI** (drone e cubos de dados): rampa de cores RdYlGn.
+  - As camadas de clima e saúde têm preenchimento semitransparente e contorno preto, por isso as cores podem variar um pouco conforme o mapa de fundo.
 - Janela *Sobre nós* com informações sobre o projeto Harmonize e link para o [Harmonize Explorer](https://geolab.inpe.br/bdc/harmonize/explorer/explore).
 - Interface em **inglês** e **português do Brasil**, conforme o idioma do QGIS.
 
@@ -255,7 +316,7 @@ O **Harmonize Brazil Catalog** dá acesso direto, no QGIS, aos conjuntos de dado
 <summary><strong>Requisitos</strong></summary>
 
 - QGIS 3.22 ou superior.
-- Acesso à internet para `geolab.inpe.br`.
+- Acesso à internet para `geolab.inpe.br` (dados) e `raw.githubusercontent.com` (configuração do catálogo).
 
 Não é necessário instalar pacotes Python adicionais.
 
@@ -284,6 +345,40 @@ Para desenvolvimento, clone o repositório e crie, na pasta de plugins do QGIS, 
 6. Use o **Controlador Temporal** (*Exibir > Painéis > Controlador Temporal*) para navegar pelos períodos carregados.
 
 Os arquivos ficam em `<pasta de saída>/<id da coleção>/`.
+
+</details>
+
+<details>
+<summary><strong>Estilos das camadas</strong></summary>
+
+Os estilos são aplicados à coluna `value`. Valores gravados como texto são convertidos em número, e valores ausentes não são desenhados.
+
+- **Clima**: tabelas de cores da pasta `styles/`, no mesmo formato do GeoServer (`valor R:G:B`), escolhidas pelo id da coleção (`precip_*`, `temp_*`, `humidity_*`, `anomaly_*`). O valor `-9999` indica ausência de dado.
+- **Saúde**: nível de alerta com 1 risco baixo (verde), 2 moderado (amarelo), 3 alto (laranja) e 4 muito alto (vermelho). Os demais indicadores usam cinco intervalos iguais entre 0 e o máximo da camada (passo = máximo / 5), do cinza claro ao vermelho escuro.
+
+Opacidade, cores e contorno são definidos no início do `harmonize_core.py`.
+
+</details>
+
+<details>
+<summary><strong>Alterar a URL do catálogo STAC</strong></summary>
+
+A URL fica em [`src/data/harmonize_config.json`](src/data/harmonize_config.json). A cada carregamento do catálogo, o plugin lê esse arquivo no branch `main` deste repositório. Para apontar todos os usuários para um novo catálogo, basta editar o arquivo e enviá-lo para o `main`, sem publicar nova versão do plugin. A mudança pode levar alguns minutos para chegar aos usuários por causa do cache do GitHub.
+
+Se o GitHub não responder em 5 segundos, ou se o arquivo for inválido, o plugin usa a última cópia válida baixada e, na falta dela, a cópia distribuída com o plugin. A URL em uso e a origem ficam registradas no painel *Mensagens de Log*, aba *Harmonize Brazil*.
+
+</details>
+
+<details>
+<summary><strong>Empacotamento e publicação</strong></summary>
+
+Na raiz do repositório (OSGeo4W Shell no Windows, ou qualquer Python 3):
+
+```bash
+python make_zip.py
+```
+
+O script confere os campos obrigatórios do metadata e os arquivos necessários e gera `dist/harmonize_brazil-<versão>.zip` apenas com o que o plugin usa. Depois de atualizar `version` e `changelog` no `metadata.txt`, envie o zip em [plugins.qgis.org](https://plugins.qgis.org) pela opção *Add version*.
 
 </details>
 

@@ -103,6 +103,7 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
     def load_collections(self):
         QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
+            hc.load_config()                 # URL do STAC atualizada a partir do GitHub
             self.collections = hc.list_collections()
         except Exception as exc:  # noqa: BLE001
             self.collections = []

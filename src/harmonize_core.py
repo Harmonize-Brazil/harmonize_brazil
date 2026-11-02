@@ -8,16 +8,30 @@ import os
 import urllib.parse
 
 from qgis.core import (Qgis, QgsBlockingNetworkRequest, QgsColorRampShader,
-                       QgsDateTimeRange, QgsFeedback, QgsNetworkAccessManager,
+                       QgsDateTimeRange, QgsFeedback, QgsNetworkAccessManager, QgsSettings,
                        QgsGraduatedSymbolRenderer, QgsMessageLog, QgsProject,
                        QgsRasterBandStats, QgsRasterLayer, QgsRasterShader,
                        QgsRendererRange, QgsSingleBandPseudoColorRenderer, QgsStyle,
-                       QgsSymbol, QgsVectorLayer)
-from qgis.PyQt.QtCore import QCoreApplication, QDateTime, QEventLoop, QThread, Qt, QUrl
+                       QgsSymbol, QgsVectorLayer, QgsCategorizedSymbolRenderer,
+                       QgsRendererCategory)
+from qgis.PyQt.QtCore import (QCoreApplication, QDateTime, QEventLoop, QThread, QTimer, Qt, QUrl,
+                              QT_TRANSLATE_NOOP)
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtNetwork import QNetworkReply, QNetworkRequest
 
-STAC_URL = "https://geolab.inpe.br/bdc/harmonize/stac/v1"
+# Endereço do catálogo STAC. O valor efetivo vem de load_config(), nesta ordem:
+# 1) data/harmonize_config.json no GitHub (permite trocar a URL sem nova versão do plugin);
+# 2) última cópia válida baixada (guardada nas configurações do QGIS);
+# 3) data/harmonize_config.json distribuído com o plugin;
+# 4) DEFAULT_STAC_URL.
+DEFAULT_STAC_URL = "https://geolab.inpe.br/bdc/harmonize/stac/v1"
+CONFIG_URL = ("https://raw.githubusercontent.com/Harmonize-Brazil/harmonize_brazil/"
+              "main/src/data/harmonize_config.json")
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "data", "harmonize_config.json")
+CONFIG_SETTINGS_KEY = "harmonize_brazil/remote_config"
+CONFIG_TIMEOUT_MS = 5000              # o GitHub fora do ar não pode travar a abertura do plugin
+STAC_URL = DEFAULT_STAC_URL
+CONFIG_SOURCE = "default"
 USER_AGENT = "QGIS-HarmonizeBrazil/0.1"
 LOG_TAG = "Harmonize Brazil"
 REGIONS = {"ne": "NE", "no": "NO"}
@@ -31,6 +45,17 @@ CLIMATE_OPACITY = 0.75                # opacidade do preenchimento: 0 = transpar
 CLIMATE_STROKE_COLOR = (0, 0, 0, 255) # contorno dos municípios: R, G, B, alfa (255 = sem transparência)
 CLIMATE_STROKE_WIDTH = 0.1            # espessura do contorno, em mm
 PALETTE_NODATA = -9999                # valor sem dado: não é desenhado (fica transparente)
+# Estilo dos dados de saúde (mesmas cores dos SLD do GeoServer), sobre a coluna VALUE_FIELD
+VALUE_FIELD = "value"                 # coluna com o valor do indicador
+HEALTH_OPACITY = 0.7                  # fill-opacity dos SLD de saúde
+ALERT_LEVELS = [                      # nível de alerta (alert_level.sld): valor, cor, rótulo
+    (1, "#008000", QT_TRANSLATE_NOOP("@default", "Low risk")),
+    (2, "#ffff00", QT_TRANSLATE_NOOP("@default", "Moderate risk")),
+    (3, "#ffa500", QT_TRANSLATE_NOOP("@default", "High risk")),
+    (4, "#ff0000", QT_TRANSLATE_NOOP("@default", "Very high risk")),
+]
+HEALTH_COLORS = ["#d9d9d9", "#f1b066", "#e56d46", "#c5444d", "#922042"]   # health.sld, 5 classes
+
 CLIMATE_PALETTES = [                  # (prefixo do id da coleção, trecho do id, arquivo)
     ("anomaly_", "_month_", "color_anomaly_month.txt"),
     ("anomaly_", "", "color_anomaly_epiweek.txt"),
@@ -117,6 +142,70 @@ def _request(url, method="get", accept=None, progress=None, is_canceled=None):
 def _get_json(url):
     reply = _request(url, accept="application/json")
     return json.loads(bytes(reply.content()).decode("utf-8"))
+
+
+# ----------------------------------------------------------------- configuração remota
+def _fetch_text(url, timeout_ms):
+    """GET curto, sem cache, com limite de tempo próprio. Retorna o texto da resposta."""
+    _check_url(url)
+    req = QNetworkRequest(QUrl(url))
+    req.setRawHeader(b"User-Agent", USER_AGENT.encode("utf-8"))
+    req.setAttribute(QNetworkRequest.Attribute.CacheLoadControlAttribute,
+                     QNetworkRequest.CacheLoadControl.AlwaysNetwork)
+    reply = QgsNetworkAccessManager.instance().get(req)
+    loop = QEventLoop()
+    timer = QTimer()
+    timer.setSingleShot(True)
+    timer.timeout.connect(reply.abort)
+    reply.finished.connect(loop.quit)
+    timer.start(timeout_ms)
+    loop.exec()
+    timer.stop()
+    try:
+        if reply.error() != QNetworkReply.NetworkError.NoError:
+            raise HttpError(reply.errorString())
+        return bytes(reply.readAll()).decode("utf-8")
+    finally:
+        reply.deleteLater()
+
+
+def _parse_config(text):
+    """Converte o JSON e valida o campo stac_url; erro se for inválido."""
+    cfg = json.loads(text)
+    url = cfg.get("stac_url") if isinstance(cfg, dict) else None
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("stac_url ausente")
+    _check_url(url.strip())
+    return cfg
+
+
+def load_config():
+    """Define STAC_URL a partir do GitHub, com recuo para a cópia salva e para o arquivo local."""
+    global STAC_URL, CONFIG_SOURCE
+    settings = QgsSettings()
+    cfg, source = None, None
+    try:
+        text = _fetch_text(CONFIG_URL, CONFIG_TIMEOUT_MS)
+        cfg, source = _parse_config(text), "GitHub"
+        settings.setValue(CONFIG_SETTINGS_KEY, text)          # última cópia válida
+    except Exception as exc:  # noqa: BLE001
+        log(tr("Could not read the configuration from GitHub ({0}). Using the saved copy.").format(exc),
+            Qgis.Warning)
+    if cfg is None:
+        try:
+            cfg, source = _parse_config(settings.value(CONFIG_SETTINGS_KEY, "") or ""), "cache"
+        except Exception:  # noqa: BLE001
+            cfg = None
+    if cfg is None:
+        try:
+            with open(CONFIG_FILE, encoding="utf-8") as fh:
+                cfg, source = _parse_config(fh.read()), "plugin"
+        except Exception:  # noqa: BLE001
+            cfg = None
+    STAC_URL = cfg["stac_url"].strip().rstrip("/") if cfg else DEFAULT_STAC_URL
+    CONFIG_SOURCE = source or "default"
+    log(tr("STAC catalog: {0} (source: {1})").format(STAC_URL, CONFIG_SOURCE))
+    return STAC_URL
 
 
 # ----------------------------------------------------------------- STAC
@@ -445,6 +534,92 @@ def read_palette(path):
     return stops
 
 
+def fill_symbol(layer, color, opacity=None):
+    """Símbolo com preenchimento semitransparente e contorno opaco."""
+    fill = QColor(color)
+    fill.setAlphaF(CLIMATE_OPACITY if opacity is None else opacity)   # só no preenchimento
+    symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+    symbol.setColor(fill)
+    sl = symbol.symbolLayer(0)
+    if hasattr(sl, "setStrokeColor"):            # contorno opaco nos polígonos
+        sl.setStrokeColor(QColor(*CLIMATE_STROKE_COLOR))
+        sl.setStrokeWidth(CLIMATE_STROKE_WIDTH)
+    return symbol
+
+
+def value_field(layer):
+    """Retorna (atributo, campo) para a simbologia.
+    'atributo' é o que o renderizador usa: o nome da coluna VALUE_FIELD ou, se ela
+    estiver gravada como texto (ex.: "2"), a expressão to_real("value").
+    'campo' é o nome real da coluna. Sem VALUE_FIELD, usa a heurística antiga."""
+    for f in layer.fields():
+        if f.name().lower() == VALUE_FIELD:
+            if f.isNumeric():
+                return f.name(), f.name()
+            return 'to_real("{0}")'.format(f.name()), f.name()
+    name = first_numeric_field(layer)
+    return name, name
+
+
+def numeric_values(layer, field):
+    """Valores distintos da coluna convertidos para número (texto incluído).
+    NULL, NaN e textos não numéricos são descartados."""
+    values = set()
+    for v in layer.uniqueValues(layer.fields().indexOf(field)):
+        if isinstance(v, str):
+            try:
+                v = float(v.strip().replace(",", "."))
+            except ValueError:
+                continue
+        if isinstance(v, (int, float)) and v == v:
+            values.add(float(v))
+    return sorted(values)
+
+
+def _fmt(v):
+    """Número com até 2 casas decimais, sem zeros à direita: 62.2, 755.08, 167."""
+    return ("{0:.2f}".format(v)).rstrip("0").rstrip(".")
+
+
+def health_renderer(layer, attribute, field, collection_id=None):
+    """Saúde, com as cores dos SLD do GeoServer:
+    - nível de alerta: uma cor fixa por nível (1 a 4), com rótulos de risco;
+    - demais indicadores: 5 classes de intervalos iguais entre 0 e o valor máximo
+      da camada (mesmo cálculo das legendas do explorer: passo = máximo / 5).
+    Valores nulos ou não numéricos não são desenhados."""
+    if "alert_level" in (collection_id or "").lower():
+        expr = 'to_real("{0}")'.format(field)    # funciona com coluna numérica ou texto
+        categories = [QgsRendererCategory(float(v), fill_symbol(layer, color, HEALTH_OPACITY), tr(label))
+                      for v, color, label in ALERT_LEVELS]
+        return QgsCategorizedSymbolRenderer(expr, categories)
+
+    values = numeric_values(layer, field)
+    if not values:
+        return None
+    vmin, vmax = values[0], values[-1]
+    base = min(0.0, vmin)
+    n = len(HEALTH_COLORS)
+    if vmax <= base:                             # todos iguais (ex.: semana sem casos)
+        rng = QgsRendererRange(vmin - 1e-9, vmax, fill_symbol(layer, HEALTH_COLORS[0], HEALTH_OPACITY),
+                               _fmt(vmax))
+        return QgsGraduatedSymbolRenderer(attribute, [rng])
+
+    step = (vmax - base) / n
+    breaks = [base + step * k for k in range(1, n)]          # 4 limites internos
+    ranges = []
+    for k, color in enumerate(HEALTH_COLORS):
+        lower = -1e12 if k == 0 else breaks[k - 1]
+        upper = 1e12 if k == n - 1 else breaks[k]
+        if k == 0:
+            label = tr("Lower than {0}").format(_fmt(breaks[0]))
+        elif k == n - 1:
+            label = tr("Greater than {0}").format(_fmt(breaks[-1]))
+        else:
+            label = tr("Between {0} and {1}").format(_fmt(lower), _fmt(upper))
+        ranges.append(QgsRendererRange(lower, upper, fill_symbol(layer, color, HEALTH_OPACITY), label))
+    return QgsGraduatedSymbolRenderer(attribute, ranges)
+
+
 def palette_renderer(layer, field, stops):
     """Simbologia graduada com as classes do GeoServer: cada classe vai de um
     valor da paleta até o seguinte e usa a cor do valor inicial."""
@@ -456,41 +631,28 @@ def palette_renderer(layer, field, stops):
         last = i == len(stops) - 1
         upper = 1e12 if last else stops[i + 1][0]
         label = ">= {0}".format(fmt(value)) if last else "{0} - {1}".format(fmt(value), fmt(upper))
-        fill = QColor(color)
-        fill.setAlphaF(CLIMATE_OPACITY)              # transparência só no preenchimento
-        symbol = QgsSymbol.defaultSymbol(layer.geometryType())
-        symbol.setColor(fill)
-        sl = symbol.symbolLayer(0)
-        if hasattr(sl, "setStrokeColor"):           # contorno opaco nos polígonos
-            sl.setStrokeColor(QColor(*CLIMATE_STROKE_COLOR))
-            sl.setStrokeWidth(CLIMATE_STROKE_WIDTH)
+        symbol = fill_symbol(layer, color)
         ranges.append(QgsRendererRange(value, upper, symbol, label))
     return QgsGraduatedSymbolRenderer(field, ranges)
 
 
-def load_vector(path, name, group=None, collection_id=None,
-                ramp="Spectral", invert=True, classes=5):
+def load_vector(path, name, group=None, collection_id=None):
     """Carrega GeoJSON ou shapefile zipado.
     Clima: classes e cores do GeoServer (styles/), preenchimento com transparência
     CLIMATE_OPACITY e contorno opaco CLIMATE_STROKE_COLOR.
-    Demais (saúde): simbologia graduada automática (Jenks)."""
+    Saúde: cores dos SLD do GeoServer pela coluna VALUE_FIELD (veja health_renderer)."""
     src = f"/vsizip/{path}" if path.lower().endswith(".zip") else path
     layer = QgsVectorLayer(src, name, "ogr")
     if not layer.isValid():
         raise RuntimeError(tr("Could not open {0}").format(path))
-    field = first_numeric_field(layer)
+    attribute, field = value_field(layer)
     pfile = palette_file(collection_id)
-    if field and pfile and os.path.exists(pfile):
-        layer.setRenderer(palette_renderer(layer, field, read_palette(pfile)))
-    elif field:
-        renderer = QgsGraduatedSymbolRenderer(field)
-        color_ramp = QgsStyle.defaultStyle().colorRamp(ramp)
-        if color_ramp:
-            if invert:
-                color_ramp.invert()
-            renderer.setSourceColorRamp(color_ramp)
-        renderer.updateClasses(layer, QgsGraduatedSymbolRenderer.Jenks, classes)
-        layer.setRenderer(renderer)
+    if attribute and pfile and os.path.exists(pfile):
+        layer.setRenderer(palette_renderer(layer, attribute, read_palette(pfile)))
+    elif attribute:
+        renderer = health_renderer(layer, attribute, field, collection_id)
+        if renderer:
+            layer.setRenderer(renderer)
     _add(layer, group)
     return layer
 

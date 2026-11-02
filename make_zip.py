@@ -34,6 +34,7 @@ FILES = [
 DIRS = {
     "i18n": (".qm",),                    # só as traduções compiladas
     "styles": (".txt",),                 # tabelas de cores de clima
+    "data": (".json",),                  # configuração (URL do STAC)
 }
 REQUIRED_METADATA = ["name", "qgisMinimumVersion", "description", "about", "version",
                      "author", "email", "repository", "tracker"]
