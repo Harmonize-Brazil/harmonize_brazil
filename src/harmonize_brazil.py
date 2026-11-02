@@ -191,7 +191,7 @@ class HarmonizeBrazil:
 
     def run(self):
         """Abre o diálogo e, após o OK, baixa os dados do STAC."""
-        if self.first_start == True:
+        if self.first_start:
             self.first_start = False
             self.dlg = HarmonizeBrazilDialog(self.iface.mainWindow())
             self.dlg.load_collections()

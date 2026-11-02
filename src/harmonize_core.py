@@ -289,7 +289,7 @@ def list_items(collection_id, start=None, end=None, limit=100, is_canceled=None)
     items, page = [], first
     while True:
         items.extend(page.get("features", []))
-        nxt = next((l for l in page.get("links", []) if l.get("rel") == "next"), None)
+        nxt = next((link for link in page.get("links", []) if link.get("rel") == "next"), None)
         if not nxt or (is_canceled and is_canceled()):
             break
         page = _get_json(nxt["href"])
