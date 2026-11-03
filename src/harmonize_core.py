@@ -5,6 +5,7 @@ Não depende da interface; pode ser testado no Console Python do QGIS.
 """
 import json
 import os
+import re
 import urllib.parse
 
 from qgis.core import (Qgis, QgsBlockingNetworkRequest, QgsColorRampShader,
@@ -64,6 +65,8 @@ CLIMATE_PALETTES = [                  # (prefixo do id da coleção, trecho do i
     ("temp_", "", "color_temperature.txt"),
 ]
 DRONE_WORKSPACE = "harmonize_drone"   # prefixo do layerName das coleções de drone
+DRONE_KEYWORDS = ("drone", "uav", "uas", "rpa", "rpas")         # palavras-chave de drone
+DRONE_NAME = re.compile(r"mavic|phantom|drone|uav", re.IGNORECASE)  # modelos/termos no id ou título
 
 # Formatos de download por tipo de coleção (chave interna -> rótulo)
 VECTOR_FORMATS = ["geojson", "shapefile"]
@@ -209,6 +212,17 @@ def load_config():
 
 
 # ----------------------------------------------------------------- STAC
+def is_drone(c, layer_name, keywords):
+    """Coleção de drone: qualquer um destes sinais basta (nem todas têm WMS publicado)."""
+    if layer_name.startswith(DRONE_WORKSPACE):
+        return True
+    if (c.get("bdc:type") or "").lower() == "drone":
+        return True
+    if any(k.strip().lower() in DRONE_KEYWORDS for k in keywords):
+        return True
+    return bool(DRONE_NAME.search("{0} {1}".format(c.get("id", ""), c.get("title", ""))))
+
+
 def raster_asset_keys(item_assets):
     """Chaves de item_assets que são rasters de dados (bandas do cubo), sem miniaturas."""
     keys = []
@@ -251,7 +265,7 @@ def list_collections():
         wms = ((c.get("bdc:metadata") or {}).get("wms") or {})
         layer_name = (wms.get("layerName") or "").lower()
         keywords = [k for k in (c.get("keywords") or []) if k]
-        if layer_name.startswith(DRONE_WORKSPACE):
+        if is_drone(c, layer_name, keywords):
             ctype = "drone"
         elif any(k.strip().lower() in DATACUBE_KEYWORDS for k in keywords):
             ctype = "datacube"

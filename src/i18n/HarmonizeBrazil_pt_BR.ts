@@ -39,54 +39,54 @@
         <translation>Shapefile (zip)</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="110" />
+        <location filename="../harmonize_brazil_dialog.py" line="198" />
         <source>Could not read the STAC catalog:
 {0}</source>
         <translation>Não foi possível ler o catálogo STAC:
 {0}</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="137" />
+        <location filename="../harmonize_brazil_dialog.py" line="225" />
         <source>No collection matches these filters.</source>
         <translation>Nenhuma coleção encontrada com esses filtros.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="152" />
+        <location filename="../harmonize_brazil_dialog.py" line="240" />
         <source>Type</source>
         <translation>Tipo</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="152" />
+        <location filename="../harmonize_brazil_dialog.py" line="240" />
         <source>Region</source>
         <translation>Região</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="152" />
+        <location filename="../harmonize_brazil_dialog.py" line="240" />
         <source>Period</source>
         <translation>Período</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="152" />
+        <location filename="../harmonize_brazil_dialog.py" line="240" />
         <source>to</source>
         <translation>a</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="223" />
+        <location filename="../harmonize_brazil_dialog.py" line="312" />
         <source>Output folder</source>
         <translation>Pasta de saída</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="235" />
+        <location filename="../harmonize_brazil_dialog.py" line="324" />
         <source>Select a collection.</source>
         <translation>Selecione uma coleção.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="237" />
+        <location filename="../harmonize_brazil_dialog.py" line="331" />
         <source>The start date is after the end date.</source>
         <translation>A data inicial é posterior à data final.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="239" />
+        <location filename="../harmonize_brazil_dialog.py" line="337" />
         <source>Enter the output folder.</source>
         <translation>Informe a pasta de saída.</translation>
     </message>
@@ -131,27 +131,27 @@
         <translation>Harmonize: verificando arquivos ({0})</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="194" />
+        <location filename="../harmonize_brazil_dialog.py" line="283" />
         <source>About us</source>
         <translation>Sobre nós</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="175" />
+        <location filename="../harmonize_brazil_dialog.py" line="264" />
         <source>This work is part of the &lt;a href="https://www.harmonize-tools.org/"&gt;Harmonize Project&lt;/a&gt;. Harmonizing multi-scale spatiotemporal data for health in climate change hotspots. Harmonize is a project in partnership with the Health and Climate Observatory and several international partners, including the Barcelona Supercomputing Center (BSC). The project’s objective is to collect, organize and analyze multi-scale spatiotemporal data for health in climate hotspots.</source>
         <translation>Este trabalho faz parte do &lt;a href="https://www.harmonize-tools.org/"&gt;Projeto Harmonize&lt;/a&gt;. Harmonização de dados espaço-temporais multiescala para a saúde em hotspots de mudanças climáticas. O Harmonize é um projeto em parceria com o Observatório de Clima e Saúde e diversos parceiros internacionais, entre eles o Barcelona Supercomputing Center (BSC). O objetivo do projeto é coletar, organizar e analisar dados espaço-temporais multiescala para a saúde em hotspots climáticos.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="181" />
+        <location filename="../harmonize_brazil_dialog.py" line="270" />
         <source>The &lt;a href="https://harmonize-brazil.github.io/"&gt;Earth Observation Data Cube tuned for Health Response Systems (EODCtHRS)&lt;/a&gt; component is based on the integration and interoperability between specific sets of attention data (climate reanalysis, forecast, socioeconomic, demographic, health, disease surveillance data and drone images) and digital infrastructure of the Brazil Data Cube (BDC) Project of the National Institute for Space Research (INPE), in particular with the Earth Observation datasets of Brazil.</source>
         <translation>O componente &lt;a href="https://harmonize-brazil.github.io/"&gt;Earth Observation Data Cube tuned for Health Response Systems (EODCtHRS)&lt;/a&gt; baseia-se na integração e na interoperabilidade entre conjuntos específicos de dados de interesse (reanálise e previsão climática, dados socioeconômicos, demográficos, de saúde, de vigilância de doenças e imagens de drone) e a infraestrutura digital do Projeto Brazil Data Cube (BDC), do Instituto Nacional de Pesquisas Espaciais (INPE), em particular com os conjuntos de dados de Observação da Terra do Brasil.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="187" />
+        <location filename="../harmonize_brazil_dialog.py" line="276" />
         <source>This work is supported by the Wellcome Trust grant number 224694/Z/21/Z.</source>
         <translation>Este trabalho é financiado pelo Wellcome Trust, processo nº 224694/Z/21/Z.</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="152" />
+        <location filename="../harmonize_brazil_dialog.py" line="240" />
         <source>STAC collection</source>
         <translation>Coleção no STAC</translation>
     </message>
@@ -161,7 +161,7 @@
         <translation>Drone</translation>
     </message>
     <message>
-        <location filename="../harmonize_brazil_dialog.py" line="188" />
+        <location filename="../harmonize_brazil_dialog.py" line="277" />
         <source>Explore the data online in the &lt;a href="https://geolab.inpe.br/bdc/harmonize/explorer/explore"&gt;Harmonize Explorer&lt;/a&gt;.</source>
         <translation>Explore os dados online no &lt;a href="https://geolab.inpe.br/bdc/harmonize/explorer/explore"&gt;Harmonize Explorer&lt;/a&gt;.</translation>
     </message>
@@ -239,6 +239,26 @@
         <location filename="../harmonize_core.py" line="207" />
         <source>STAC catalog: {0} (source: {1})</source>
         <translation>Catálogo STAC: {0} (origem: {1})</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil_dialog.py" line="83" />
+        <source>Type the date (dd/mm/yyyy) or choose it in the calendar.</source>
+        <translation>Digite a data (dd/mm/aaaa) ou escolha no calendário.</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil_dialog.py" line="97" />
+        <source>Choose in the calendar</source>
+        <translation>Escolher no calendário</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil_dialog.py" line="328" />
+        <source>Invalid date: {0}. Use the format dd/mm/yyyy.</source>
+        <translation>Data inválida: {0}. Use o formato dd/mm/aaaa.</translation>
+    </message>
+    <message>
+        <location filename="../harmonize_brazil_dialog.py" line="333" />
+        <source>The selected period is outside the period available for this collection ({0} to {1}).</source>
+        <translation>O período selecionado está fora do período disponível para esta coleção ({0} a {1}).</translation>
     </message>
 </context>
 <context>

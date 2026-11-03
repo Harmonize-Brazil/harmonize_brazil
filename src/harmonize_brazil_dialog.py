@@ -68,12 +68,91 @@ SETTINGS_DIR = "harmonize_brazil/out_dir"
 ROLE = Qt.ItemDataRole.UserRole
 
 
+DATE_FORMAT = "dd/MM/yyyy"
+
+
+class DateField(QtWidgets.QWidget):
+    """Campo de data que aceita digitação livre (dd/mm/aaaa) e seleção no calendário.
+    Substitui o QDateEdit, cuja edição por seções dificulta digitar uma data inteira."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._date = QDate.currentDate()
+        self.edit = QtWidgets.QLineEdit(self)
+        self.edit.setInputMask("00/00/0000;_")       # digitar 15032024 vira 15/03/2024
+        self.edit.setToolTip(tr("Type the date (dd/mm/yyyy) or choose it in the calendar."))
+        self.edit.editingFinished.connect(self._on_edited)
+
+        self.calendar = QtWidgets.QCalendarWidget(self)
+        self.calendar.setGridVisible(True)
+        self.calendar.clicked.connect(self._on_calendar)
+        menu = QtWidgets.QMenu(self)
+        action = QtWidgets.QWidgetAction(menu)
+        action.setDefaultWidget(self.calendar)
+        menu.addAction(action)
+        self._menu = menu
+
+        self.button = QtWidgets.QToolButton(self)
+        self.button.setArrowType(Qt.ArrowType.DownArrow)
+        self.button.setToolTip(tr("Choose in the calendar"))
+        self.button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.button.setMenu(menu)
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        layout.addWidget(self.edit)
+        layout.addWidget(self.button)
+        self.setDate(self._date)
+
+    def _parse(self):
+        return QDate.fromString(self.edit.text(), DATE_FORMAT)
+
+    def _on_edited(self):
+        d = self._parse()
+        if d.isValid():
+            self._date = d
+            self.calendar.setSelectedDate(d)
+
+    def _on_calendar(self, d):
+        self.setDate(d)
+        self._menu.hide()
+
+    def isValid(self):
+        return self._parse().isValid()
+
+    def date(self):
+        d = self._parse()
+        return d if d.isValid() else self._date
+
+    def setDate(self, d):
+        self._date = d
+        self.edit.setText(d.toString(DATE_FORMAT))
+        self.calendar.setSelectedDate(d)
+
+    def setCalendarRange(self, start, end):
+        """Limita só o calendário ao período da coleção; a digitação continua livre."""
+        self.calendar.setDateRange(start, end)
+
+
 class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
     def __init__(self, parent=None):
         """Constructor."""
         super(HarmonizeBrazilDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'icon.png')))
+
+        # Datas: troca os QDateEdit do .ui por campos com digitação livre e calendário
+        for name in ("dtStart", "dtEnd"):
+            old_widget = getattr(self, name)
+            field = DateField(self)
+            self.periodLayout.replaceWidget(old_widget, field)
+            # remove já o widget antigo: com deleteLater() ele continuava visível, porque o
+            # diálogo roda num laço de eventos aninhado (exec) que não processa a exclusão adiada
+            old_widget.hide()
+            old_widget.setParent(None)
+            setattr(self, name, field)
+        self._extent = None                       # período disponível da coleção selecionada
         self.collections = []
 
         for label, value in TYPE_OPTIONS:
@@ -91,7 +170,7 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
         self.cmbRegion.currentIndexChanged.connect(self._apply_filter)
         self.txtSearch.textChanged.connect(self._apply_filter)
         self.lstCollections.currentItemChanged.connect(self._show_info)
-        self.btnRefresh.clicked.connect(self.load_collections)
+        self.btnRefresh.clicked.connect(self.refresh)
         self.btnOutDir.clicked.connect(self._browse)
 
         # Botão "About us" à esquerda do OK/Cancelar; não fecha o diálogo
@@ -100,6 +179,18 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
         self.btnAbout.clicked.connect(self._show_about)
 
     # ------------------------------------------------------------ catálogo
+    def refresh(self):
+        """Botão Atualizar: volta os filtros ao estado inicial e recarrega o catálogo."""
+        for w in (self.cmbType, self.cmbRegion, self.txtSearch):
+            w.blockSignals(True)                 # evita refiltrar a cada mudança
+        self.cmbType.setCurrentIndex(0)          # Todos
+        self.cmbRegion.setCurrentIndex(0)        # Todas
+        self.txtSearch.clear()
+        for w in (self.cmbType, self.cmbRegion, self.txtSearch):
+            w.blockSignals(False)
+        self.load_collections()
+        self.lstCollections.scrollToTop()
+
     def load_collections(self):
         QtWidgets.QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -119,6 +210,8 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
         region = self.cmbRegion.currentData()
         query = self.txtSearch.text().strip().lower()
         self.lstCollections.clear()
+        # títulos repetidos (ex.: mosaico e voos com o mesmo nome) recebem o id ao lado
+        titles = [c["title"] for c in self.collections]
         for c in self.collections:
             if ctype and c["type"] != ctype:
                 continue
@@ -127,7 +220,10 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
             haystack = " ".join([c["id"], c["title"]] + c["keywords"]).lower()
             if query and query not in haystack:
                 continue
-            item = QtWidgets.QListWidgetItem(c["title"])
+            text = c["title"]
+            if titles.count(c["title"]) > 1 and c["id"] != c["title"]:
+                text = "{0}  ({1})".format(c["title"], c["id"])
+            item = QtWidgets.QListWidgetItem(text)
             item.setData(ROLE, c)
             item.setToolTip(c["description"])
             self.lstCollections.addItem(item)
@@ -164,9 +260,10 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
 
         d_start = QDate.fromString((start or "")[:10], "yyyy-MM-dd")
         d_end = QDate.fromString((end or "")[:10], "yyyy-MM-dd")
-        if d_start.isValid() and d_end.isValid():
+        self._extent = (d_start, d_end) if d_start.isValid() and d_end.isValid() else None
+        if self._extent:
             for w in (self.dtStart, self.dtEnd):
-                w.setDateRange(d_start, d_end)
+                w.setCalendarRange(d_start, d_end)
             self.dtEnd.setDate(d_end)
             self.dtStart.setDate(max(d_start, d_end.addMonths(-3)))
 
@@ -233,8 +330,17 @@ class HarmonizeBrazilDialog(QtWidgets.QDialog, FORM_CLASS):
 
         if not self.selected_collection():
             return warn(tr("Select a collection."))
-        if self.dtStart.date() > self.dtEnd.date():
+        for w in (self.dtStart, self.dtEnd):
+            if not w.isValid():
+                w.edit.setFocus()
+                return warn(tr("Invalid date: {0}. Use the format dd/mm/yyyy.").format(w.edit.text()))
+        start, end = self.dtStart.date(), self.dtEnd.date()
+        if start > end:
             return warn(tr("The start date is after the end date."))
+        if self._extent and (end < self._extent[0] or start > self._extent[1]):
+            return warn(tr("The selected period is outside the period available for this collection "
+                           "({0} to {1}).").format(self._extent[0].toString(DATE_FORMAT),
+                                                   self._extent[1].toString(DATE_FORMAT)))
         if not self.txtOutDir.text().strip():
             return warn(tr("Enter the output folder."))
         QgsSettings().setValue(SETTINGS_DIR, self.txtOutDir.text().strip())
