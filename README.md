@@ -21,14 +21,24 @@
 
 **Harmonize Brazil Catalog** gives QGIS users direct access to the datasets published by the Harmonize Brazil project through its [STAC catalog](https://geolab.inpe.br/bdc/harmonize/stac/v1/collections). Users can browse the available collections, filter them by type and region, download the data for a chosen period and load it into QGIS, ready for temporal analysis.
 
-> The plugin is under development and is currently flagged as **experimental**.
-
 <details>
 <summary><strong>Screenshots</strong></summary>
 
 ![Plugin interface](images/interface.png)
 
 ![About us window](images/about.png)
+
+![Drone example window](images/interface_drone.png)
+
+![Selection item window](images/drone_selection1.png)
+
+![Selection item window](images/drone_selection2.png)
+
+![Drone example window](images/interface_drone2.png)
+
+![Drone example window](images/drone_selection3.png)
+
+![Selection item window](images/climate_selection.png)
 
 ![Drone imagery loaded in QGIS](images/drone_map.png)
 
@@ -50,6 +60,8 @@
   - **Drone** imagery: GeoTIFF.
   - **Data cubes**: GeoTIFF, one band at a time.
   - **Climate and health** (municipal indicators): GeoJSON or Shapefile (zip).
+- *List items in the period* window: thumbnails, items already downloaded and choice of what to download.
+- Collections with data in the output folder are marked with ✓.
 - Size check before downloading, with a confirmation prompt when the total exceeds 50 MB.
 - Large files are written directly to disk and downloads resume automatically after connection drops.
 - Local cache: files already downloaded are reused, and interrupted downloads continue where they stopped.
@@ -96,7 +108,6 @@ No additional Python packages are required.
 1. Download the latest release from the [Releases](https://github.com/Harmonize-Brazil/harmonize_brazil/releases) page.
 2. In QGIS, open *Plugins > Manage and Install Plugins > Install from ZIP*.
 3. Select the file and click *Install Plugin*.
-4. In the *Settings* tab, enable *Show also experimental plugins* if the plugin does not appear.
 
 **From source (development)**
 
@@ -127,7 +138,7 @@ Restart QGIS and enable the plugin. The [Plugin Reloader](https://plugins.qgis.o
 
 1. Open the plugin from the toolbar icon or from *Web > Harmonize Brazil Catalog*.
 2. Filter and select a collection.
-3. Set the start and end dates.
+3. Set the start and end dates. Optionally, click *List items in the period* to choose the items.
 4. Choose the download format (for data cubes, the band) and the output folder.
 5. Click **OK**. Progress is shown in the QGIS task bar, and messages are recorded in *View > Panels > Log Messages*, tab *Harmonize Brazil*.
 6. Use the **Temporal Controller** (*View > Panels > Temporal Controller*) to navigate through the loaded periods.
@@ -272,8 +283,6 @@ Data provided through the STAC catalog follow the licenses stated in each collec
 
 O **Harmonize Brazil Catalog** dá acesso direto, no QGIS, aos conjuntos de dados publicados pelo projeto Harmonize Brazil por meio do seu [catálogo STAC](https://geolab.inpe.br/bdc/harmonize/stac/v1/collections). É possível navegar pelas coleções, filtrá-las por tipo e região, baixar os dados de um período e carregá-los no QGIS, prontos para análise temporal.
 
-> O plugin está em desenvolvimento e marcado como **experimental**.
-
 <details>
 <summary><strong>Funcionalidades</strong></summary>
 
@@ -284,6 +293,8 @@ O **Harmonize Brazil Catalog** dá acesso direto, no QGIS, aos conjuntos de dado
   - Imagens de **drone**: GeoTIFF.
   - **Cubos de dados**: GeoTIFF, uma banda por vez.
   - **Clima e saúde** (indicadores municipais): GeoJSON ou Shapefile (zip).
+- Janela *Listar itens do período*: miniaturas, itens já baixados e escolha do que baixar.
+- Coleções com dados na pasta de saída são marcadas com ✓.
 - Verificação do tamanho antes do download, com confirmação quando o total passa de 50 MB.
 - Arquivos grandes são gravados direto no disco, e o download é retomado automaticamente se a conexão cair.
 - Cache local: arquivos já baixados são reaproveitados, e downloads interrompidos continuam de onde pararam.
@@ -328,7 +339,6 @@ Não é necessário instalar pacotes Python adicionais.
 1. Baixe a versão mais recente na página [Releases](https://github.com/Harmonize-Brazil/harmonize_brazil/releases).
 2. No QGIS, abra *Complementos > Gerenciar e instalar complementos > Instalar a partir do ZIP*.
 3. Selecione o arquivo e clique em *Instalar complemento*.
-4. Na aba *Configurações*, marque *Mostrar também complementos experimentais* se o plugin não aparecer.
 
 Para desenvolvimento, clone o repositório e crie, na pasta de plugins do QGIS, um link chamado `harmonize_brazil` apontando para a pasta `src`, conforme descrito na seção em inglês.
 
@@ -339,7 +349,7 @@ Para desenvolvimento, clone o repositório e crie, na pasta de plugins do QGIS, 
 
 1. Abra o plugin pelo ícone na barra de ferramentas ou em *Web > Harmonize Brazil Catalog*.
 2. Filtre e selecione uma coleção.
-3. Defina as datas de início e fim.
+3. Defina as datas de início e fim. Se quiser, clique em *Listar itens do período* para escolher os itens.
 4. Escolha o formato (nos cubos de dados, a banda) e a pasta de saída.
 5. Clique em **OK**. O progresso aparece na barra de tarefas do QGIS, e as mensagens ficam em *Exibir > Painéis > Mensagens de Log*, aba *Harmonize Brazil*.
 6. Use o **Controlador Temporal** (*Exibir > Painéis > Controlador Temporal*) para navegar pelos períodos carregados.
