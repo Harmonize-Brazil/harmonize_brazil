@@ -7,7 +7,7 @@
 name=Harmonize Brazil Catalog
 qgisMinimumVersion=3.22
 description=Access to the Harmonize Brazil STAC catalog: search and download of drone imagery, data cubes, and municipal climate and health indicators
-version=0.1.3
+version=1.0.0
 author=Adeline Marinho Maciel (HARMONIZE Team Member | INPE)
 email=adelinemaciel22@gmail.com
 
@@ -29,8 +29,13 @@ homepage=https://github.com/Harmonize-Brazil/harmonize_brazil
 category=Web
 icon=icon.png
 # experimental flag
-experimental=True
+experimental=False
 changelog=
+    1.0.0 - First stable release. New "Available items" panel: lists the items of the 
+            selected period, with size and a mark for those already downloaded; only
+            the checked items are downloaded. Thumbnail of the selected collection or item. 
+            Collections with data in the output folder are marked in the catalog list.
+            Thanks for the suggestion, Marcos Rodrigues.
     0.1.3 - The Refresh button resets the filters (type, region and search) and reloads
             the catalog.
             Date fields accept typing (dd/mm/yyyy) in addition to the calendar, and the

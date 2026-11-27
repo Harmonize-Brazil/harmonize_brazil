@@ -281,6 +281,7 @@ def list_collections():
             "band_assets": raster_asset_keys(c.get("item_assets") or {}),
             "temporal": intervals[0] or [None, None],
             "bbox": bboxes[0],
+            "thumbnail": thumbnail_url(c),
         })
     out.sort(key=lambda d: (d["type"], d["region"], d["title"].lower()))
     return out
@@ -309,6 +310,59 @@ def list_items(collection_id, start=None, end=None, limit=100, is_canceled=None)
         page = _get_json(nxt["href"])
     items.sort(key=lambda f: f.get("properties", {}).get("datetime") or "")
     return items
+
+
+# ----------------------------------------------------------------- índice e miniaturas
+def item_overlaps(item, start, end):
+    """True se o período do item intersecta [start, end] (datas AAAA-MM-DD)."""
+    props = item.get("properties") or {}
+    i_start = (props.get("start_datetime") or props.get("datetime") or "")[:10]
+    i_end = (props.get("end_datetime") or props.get("datetime") or "")[:10]
+    return bool(i_start) and i_start <= end and i_end >= start
+
+
+def item_period(item):
+    """(início, fim) do item como texto AAAA-MM-DD; fim igual ao início se não houver intervalo."""
+    props = item.get("properties") or {}
+    start = (props.get("start_datetime") or props.get("datetime") or "")[:10]
+    end = (props.get("end_datetime") or props.get("datetime") or "")[:10]
+    return start, end or start
+
+
+def thumbnail_url(obj):
+    """URL da miniatura de um item ou coleção STAC (asset 'thumbnail' ou link 'preview'), ou None."""
+    for key, a in (obj.get("assets") or {}).items():
+        if key == "thumbnail" or "thumbnail" in (a.get("roles") or []) or "overview" in (a.get("roles") or []):
+            href = a.get("href")
+            if href:
+                return href
+    for link in obj.get("links") or []:
+        if link.get("rel") in ("preview", "thumbnail") and link.get("href"):
+            return link["href"]
+    return None
+
+
+def collection_dir(out_dir, collection_id):
+    """Pasta local de uma coleção: <pasta de saída>/<id da coleção>."""
+    return os.path.join(out_dir, collection_id)
+
+
+def is_local(item, fmt, out_dir):
+    """True se o arquivo do item, no formato pedido, já foi baixado por completo."""
+    try:
+        return os.path.isfile(asset_local_path(item, fmt, out_dir)[1])
+    except KeyError:
+        return False
+
+
+def collection_has_local(out_dir, collection_id):
+    """True se a pasta da coleção tem ao menos um arquivo completo (ignora downloads parciais)."""
+    folder = collection_dir(out_dir, collection_id)
+    try:
+        return any(not f.endswith(".part") and os.path.isfile(os.path.join(folder, f))
+                   for f in os.listdir(folder))
+    except OSError:
+        return False
 
 
 # ----------------------------------------------------------------- download

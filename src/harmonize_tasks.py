@@ -13,11 +13,7 @@ def tr(message):
 
 
 def _overlaps(item, start, end):
-    """True se o período do item intersecta [start, end] (datas AAAA-MM-DD)."""
-    props = item.get("properties", {})
-    i_start = (props.get("start_datetime") or props.get("datetime") or "")[:10]
-    i_end = (props.get("end_datetime") or props.get("datetime") or "")[:10]
-    return bool(i_start) and i_start <= end and i_end >= start
+    return hc.item_overlaps(item, start, end)
 
 
 class HarmonizePrepareTask(QgsTask):
@@ -38,9 +34,12 @@ class HarmonizePrepareTask(QgsTask):
     def run(self):
         p = self.params
         try:
-            items = hc.list_items(p["collection"]["id"], p["start"], p["end"],
-                                  is_canceled=self.isCanceled)
-            items = [i for i in items if _overlaps(i, p["start"], p["end"])]
+            if p.get("items") is not None:
+                items = p["items"]           # itens marcados no índice do diálogo
+            else:
+                items = hc.list_items(p["collection"]["id"], p["start"], p["end"],
+                                      is_canceled=self.isCanceled)
+                items = [i for i in items if _overlaps(i, p["start"], p["end"])]
             self.items = [i for i in items if hc.find_asset(i, p["fmt"])[1]]
             if not self.items:
                 self.error = tr("No items found in the selected period.")
